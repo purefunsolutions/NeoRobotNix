@@ -7,7 +7,7 @@ right now.
 Example config:
 ```nix
 {
-    inputs.robotnix.url = "github:nix-community/robotnix";
+    inputs.robotnix.url = "github:purefunsolutions/NeoRobotNix";
 
     outputs = { self, robotnix }: {
         myGrapheneSystem = robotnix.lib.robotnixSystem (
