@@ -31,7 +31,7 @@ At this point, Robotnix is not ready for daily use. Treat it as in-development a
 
 The [status section](#Status) contains more detailed information on which components are expected to work.
 
-# robotnix - Build Android (AOSP) using Nix
+# NeoRobotNix - Build Android OS using Nix
 
 Robotnix enables a user to easily and reliably build Android (AOSP) images using the Nix package manager / build tool.
 
