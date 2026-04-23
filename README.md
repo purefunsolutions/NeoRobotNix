@@ -3,6 +3,26 @@ SPDX-FileCopyrightText: 2020 Daniel Fullmer and robotnix contributors
 SPDX-License-Identifier: MIT
 -->
 
+> [!NOTE]
+> **NeoRobotNix — fork of [nix-community/robotnix](https://github.com/nix-community/robotnix)**
+>
+> This fork is maintained by [Pure Fun Solutions](https://github.com/purefunsolutions) ([@mikatammi](https://github.com/mikatammi)).
+>
+> Why the fork: when contributing upstream, even mentioning the use of agentic
+> AI tools (such as Claude) drew openly hostile responses — from one of the
+> core maintainers and from another contributor who joined in. Rather than
+> fight that culture, this fork embraces agentic AI tooling as a first-class
+> part of the workflow and carries on the parts of robotnix that we actually
+> use.
+>
+> Scope of this fork:
+> - Keep **LineageOS** building against current upstream — actively maintained and usable for the newest LineageOS.
+> - Improve **signing** and fix breakage inherited from the long unmaintained period.
+> - **OnePlus 8 Pro** (`instantnoodlep`) is the only device currently being actively test-flashed.
+>
+> Other devices, flavors, and components may still work but are not regularly verified here.
+> Much of the prose below is kept close to upstream on purpose to ease merges.
+
 > [!IMPORTANT]
 > The project is currently in the process of being picked up by a new maintainer, and many components are still in disrepair after having been unmaintained for three years.
 > Currently, we are able to keep up with the LineageOS and GrapheneOS upstreams, but that could change at any point.
@@ -18,7 +38,7 @@ Robotnix enables a user to easily and reliably build Android (AOSP) images using
 ## Quick Start
 Here is a single command to build an `img` which can be flashed onto a Fairphone 4 (`FP4`).
 ```console
-$ nix-build "https://github.com/nix-community/robotnix/archive/master.tar.gz" \
+$ nix-build "https://github.com/purefunsolutions/NeoRobotNix/archive/master.tar.gz" \
     --arg configuration '{ device = "FP4"; flavor = "lineageos"; }' \
     -A img
 ```
@@ -28,7 +48,7 @@ To flash the result to your device, run `fastboot update -w <img.zip>`.
 Robotnix also provides a flake interface that can be used via the `lib.robotnixSystem` attribute similar to `lib.nixosSystem`:
 ```nix
 {
-    inputs.robotnix.url = "github:nix-community/robotnix";
+    inputs.robotnix.url = "github:purefunsolutions/NeoRobotNix";
 
     outputs = { self, robotnix }: {
         exampleSystem = robotnix.lib.robotnixSystem {

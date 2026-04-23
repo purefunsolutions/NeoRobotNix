@@ -5,7 +5,7 @@ Robotnix should support [all devices that are officially supported by LineageOS 
 Example config:
 ```nix
 {
-    inputs.robotnix.url = "github:nix-community/robotnix";
+    inputs.robotnix.url = "github:purefunsolutions/NeoRobotNix";
 
     outputs = { self, robotnix }: {
         myLineageSystem = robotnix.lib.robotnixSystem (

@@ -1,7 +1,7 @@
 {
   description = "A basic example robotnix configuration";
 
-  inputs.robotnix.url = "github:nix-community/robotnix";
+  inputs.robotnix.url = "github:purefunsolutions/NeoRobotNix";
 
   outputs =
     { self, robotnix }:
