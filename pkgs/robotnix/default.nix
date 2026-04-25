@@ -48,14 +48,23 @@ let
     else
       throw "${fname}: please supply a `name` argument because a default name can only be computed when the `apk` is a path or is an attribute set with a `name` attribute.";
 
+  # Bumped from build-tools-31-0-0 (Android 12, released 2021) to 36-0-0
+  # (Android 16, released 2025) so aapt2 can parse resources.arsc from
+  # APKs targeting Android 16's SDK. The old aapt2 SIGSEGVs on
+  # "Entry offset outside Type's boundaries" / "unaligned offset" when
+  # reading arsc files emitted by a newer resource compiler — hit when
+  # MindTheGapps-16 lands on a robotnix build, and when bundletool
+  # processes newer Chromium AABs. zipalign and apksigner are
+  # backward-compatible, so moving them up too is a no-op for older
+  # flavors.
   build-tools =
     (androidPkgs.sdk (
       p: with p; [
         cmdline-tools-latest
-        build-tools-31-0-0
+        build-tools-36-0-0
       ]
     ))
-    + "/share/android-sdk/build-tools/31.0.0";
+    + "/share/android-sdk/build-tools/36.0.0";
 
   apksigner = runCommand "apksigner" { nativeBuildInputs = [ makeWrapper ]; } ''
     mkdir -p $out/bin
