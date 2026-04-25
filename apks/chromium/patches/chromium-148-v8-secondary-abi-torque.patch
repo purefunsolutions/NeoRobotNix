@@ -17,15 +17,23 @@ sandbox auto-off), so `kSelfIndirectPointerOffset` is undefined → build error.
 
 Fix: run torque twice — once for arm64 with sandbox on (existing path,
 unchanged) and once for arm32 in a second unbundle toolchain that pins
-`v8_current_cpu = "arm"`. Each ABI's `run_torque` action now depends on
-its matching torque binary, so each `torque-generated/` tree is consistent
-with the headers it will be compiled against.
+`v8_enable_sandbox = false`. Each ABI's `run_torque` action now depends
+on its matching torque binary, so each `torque-generated/` tree is
+consistent with the headers it will be compiled against.
 
 Two files touched:
 
   * build/toolchain/linux/unbundle/BUILD.gn — add `host_v8_arm`, a clone of
-    `host` that forces `v8_current_cpu = "arm"` in toolchain_args. Same
-    compiler (nixpkgs host clang via BUILD_CC), just different V8 config.
+    `host` that forces `v8_enable_sandbox = false` in toolchain_args.
+    Forcing `v8_current_cpu = "arm"` instead would have been more direct,
+    but it pushes arm.gni's per-cpu dispatch into its arm32 branch and
+    leaves arm64-only declare_args (e.g. `arm_control_flow_integrity`)
+    undeclared, which then breaks `build/config/android/BUILD.gn` when it
+    references them under `current_cpu == "arm64"`. Toggling sandbox
+    directly avoids that — the torque source still compiles as a normal
+    arm64-config host binary, but with `V8_ENABLE_SANDBOX` undefined,
+    which is the only define that affects the torque-generated tree
+    arm32 will compile against.
 
   * v8/BUILD.gn — route `run_torque("")` to `host_v8_arm` when
     `v8_current_cpu == "arm"`, and extend the `v8_executable("torque")`
@@ -33,15 +41,17 @@ Two files touched:
 
 --- a/build/toolchain/linux/unbundle/BUILD.gn
 +++ b/build/toolchain/linux/unbundle/BUILD.gn
-@@ -39,3 +39,26 @@ gcc_toolchain("host") {
+@@ -39,3 +39,28 @@ gcc_toolchain("host") {
      current_os = current_os
    }
  }
 +
-+# Host-runnable toolchain that forces v8_current_cpu = "arm", used by the
-+# patched v8/BUILD.gn to build a second torque binary whose baked V8 config
-+# (no sandbox, no pointer compression) matches the arm32 secondary ABI's
-+# target compile. See chromium-148-v8-secondary-abi-torque.patch.
++# Host-runnable toolchain that forces v8_enable_sandbox = false. Used by
++# the patched v8/BUILD.gn to build a second torque binary whose baked
++# V8_ENABLE_SANDBOX matches arm32's target compile (where sandbox is
++# auto-disabled because arm32 can't do pointer compression). Same
++# compiler / linker as :host (nixpkgs host clang via BUILD_CC), just a
++# different V8 declare_arg. See chromium-148-v8-secondary-abi-torque.patch.
 +gcc_toolchain("host_v8_arm") {
 +  cc = getenv("BUILD_CC")
 +  cxx = getenv("BUILD_CXX")
@@ -57,19 +67,20 @@ Two files touched:
 +  toolchain_args = {
 +    current_cpu = current_cpu
 +    current_os = current_os
-+    v8_current_cpu = "arm"
++    v8_enable_sandbox = false
 +  }
 +}
 --- a/v8/BUILD.gn
 +++ b/v8/BUILD.gn
-@@ -2481,7 +2481,14 @@ template("run_torque") {
+@@ -2481,7 +2481,15 @@ template("run_torque") {
 
  # Default run_torque action
  run_torque("") {
 -  toolchain = v8_generator_toolchain
 +  # For the arm32 secondary ABI, depend on a torque binary built with
-+  # v8_current_cpu="arm" (sandbox/pointer-compression off) so the emitted
-+  # torque-generated/ tree matches the headers arm32 V8 is compiled against.
++  # v8_enable_sandbox=false so the emitted torque-generated/ tree matches
++  # the headers arm32 V8 is compiled against (sandbox is auto-disabled
++  # there because arm32 can't do pointer compression).
 +  if (v8_current_cpu == "arm") {
 +    toolchain = "//build/toolchain/linux/unbundle:host_v8_arm"
 +  } else {
@@ -78,7 +89,7 @@ Two files touched:
  }
 
  if (v8_verify_torque_generation_invariance) {
-@@ -7981,6 +7988,7 @@ if (v8_enable_webassembly) {
+@@ -7981,6 +7989,7 @@ if (v8_enable_webassembly) {
    }
  }
 
