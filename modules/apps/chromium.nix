@@ -98,6 +98,25 @@ in
         documenting this option).
       '';
     };
+    apps.chromium.enableSecondaryAbi = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Pack a 32-bit (arm) sidecar library into the Trichrome bundle
+        alongside the 64-bit (arm64) primary
+        (`enable_android_secondary_abi = true` passed to GN, plus the
+        per-ABI torque patch that makes this configuration build on
+        Chromium 148+).
+
+        Leave this on unless you specifically don't need a 32-bit
+        WebView on the target device. Turning it off roughly halves
+        compile time and produces a 64-bit-only `TrichromeChrome.aab`
+        instead of `TrichromeChrome6432.aab`. The trichrome library /
+        webview / chrome targets each get a `_64` variant that the
+        canonical alias names route to automatically when the secondary
+        ABI is disabled.
+      '';
+    };
     apps.vanadium.enable = mkEnableOption "vanadium browser";
   };
 
@@ -112,6 +131,7 @@ in
             chromeModernIsBundled ? true,
             isTriChrome ? (config.androidVersion >= 10),
             enableWidevine ? false,
+            enableSecondaryAbi ? true,
           }:
           let
             # There is a lot of shared code between chrome app and chrome webview. So we
@@ -139,6 +159,7 @@ in
                     displayName
                     buildTargets
                     enableWidevine
+                    enableSecondaryAbi
                     ;
                   targetCPU =
                     {
@@ -229,6 +250,7 @@ in
             name = "chromium";
             displayName = "Chromium";
             enableWidevine = config.apps.chromium.enableWidevine;
+            enableSecondaryAbi = config.apps.chromium.enableSecondaryAbi;
           }
           {
             name = "vanadium";
