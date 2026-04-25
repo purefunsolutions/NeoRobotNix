@@ -27,6 +27,8 @@ self: super: {
   cipd = super.callPackage ./cipd { };
   fetchcipd = super.callPackage ./cipd/fetchcipd.nix { };
 
+  fetchgcs = super.callPackage ./fetchgcs { };
+
   fetchgerritpatchset = super.callPackage ./fetchgerritpatchset { };
 
   gitRepo = super.callPackage ./gitRepo {
