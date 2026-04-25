@@ -11,20 +11,20 @@
 }:
 
 let
-  # GrapheneOS Vanadium tag 148.0.7778.49.0 — their fork of Chromium 148
+  # GrapheneOS Vanadium tag 148.0.7778.60.0 — their fork of Chromium 148
   # with hardening and rebranding patches. Must match the Chromium version
   # pinned in apks/chromium/info.json.
   vanadium_src = fetchFromGitHub {
     owner = "GrapheneOS";
     repo = "Vanadium";
-    rev = "148.0.7778.49.0";
-    hash = "sha256-6AGPVVy8HpvAqNwW9N6GLF529qE2U4+fU4zjwAvxwvA=";
+    rev = "148.0.7778.60.0";
+    hash = "sha256-JXqC5ctE2AjbZWEhaCow6rotAPMZGFIPzq+OaTzUIx8=";
   };
 in
 (chromium.override {
   name = "vanadium";
   displayName = "Vanadium";
-  version = "148.0.7778.49";
+  version = "148.0.7778.60";
   enableRebranding = false; # Patches already include rebranding
   customGnFlags = {
     # enable patented codecs
