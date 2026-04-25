@@ -41,8 +41,8 @@ Two files touched:
 
 --- a/build/toolchain/linux/unbundle/BUILD.gn
 +++ b/build/toolchain/linux/unbundle/BUILD.gn
-@@ -39,3 +39,28 @@ gcc_toolchain("host") {
-     current_os = current_os
+@@ -42,3 +42,30 @@ gcc_toolchain("host") {
+     v8_current_cpu = target_cpu
    }
  }
 +
@@ -57,6 +57,7 @@ Two files touched:
 +  cxx = getenv("BUILD_CXX")
 +  ar = getenv("BUILD_AR")
 +  nm = getenv("BUILD_NM")
++  readelf = getenv("BUILD_READELF")
 +  ld = cxx
 +
 +  extra_cflags = getenv("BUILD_CFLAGS")
@@ -65,8 +66,9 @@ Two files touched:
 +  extra_ldflags = getenv("BUILD_LDFLAGS")
 +
 +  toolchain_args = {
-+    current_cpu = current_cpu
-+    current_os = current_os
++    current_cpu = host_cpu
++    current_os = host_os
++    v8_current_cpu = target_cpu
 +    v8_enable_sandbox = false
 +  }
 +}
