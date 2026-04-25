@@ -59,6 +59,14 @@
       packages.x86_64-linux = {
         manual = (import ./docs { inherit pkgs; }).manual;
         gitRepo = pkgs.gitRepo;
+
+        # Chromium build outputs — exposed at top-level so contributors
+        # can `nix build .#chromium-src` / `.#chromium` / `.#vanadium`
+        # without needing to go through a full robotnixSystem eval.
+        inherit (pkgs) cipd;
+        chromium-src = pkgs.callPackage ./apks/chromium/src.nix { };
+        chromium = (import ./apks { inherit pkgs; }).chromium;
+        vanadium = (import ./apks { inherit pkgs; }).vanadium;
       };
 
       devShells.x86_64-linux = rec {
