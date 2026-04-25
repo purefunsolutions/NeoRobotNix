@@ -65,7 +65,7 @@
   displayName ? "Chromium",
   enableRebranding ? false,
   enableWidevine ? false,
-  enableSecondaryAbi ? true,
+  enableArm32SecondaryAbi ? true,
   customGnFlags ? { },
   targetCPU ? "arm64",
   # Default to the Trichrome shared library — smaller and faster to build
@@ -244,12 +244,12 @@ let
     # Secondary ABI: pack a 32-bit (arm) sidecar library into the
     # Trichrome bundle alongside the 64-bit (arm64) primary, so devices
     # with 32-bit-only apps can keep using a Chromium-backed WebView.
-    # Defaults to true via `apps.chromium.enableSecondaryAbi`. Turning
+    # Defaults to true via `apps.chromium.enableArm32SecondaryAbi`. Turning
     # this off cuts compile time roughly in half and produces a
     # 64-only `TrichromeChrome.aab` instead of `TrichromeChrome6432.aab`.
     # See: chromium-148-v8-secondary-abi-torque.patch — this build path
     # is the one the per-ABI torque fix exists for.
-    enable_android_secondary_abi = enableSecondaryAbi;
+    enable_android_secondary_abi = enableArm32SecondaryAbi;
 
     # Codecs
     proprietary_codecs = true;

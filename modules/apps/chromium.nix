@@ -98,7 +98,7 @@ in
         documenting this option).
       '';
     };
-    apps.chromium.enableSecondaryAbi = mkOption {
+    apps.chromium.enableArm32SecondaryAbi = mkOption {
       type = types.bool;
       default = true;
       description = ''
@@ -131,7 +131,7 @@ in
             chromeModernIsBundled ? true,
             isTriChrome ? (config.androidVersion >= 10),
             enableWidevine ? false,
-            enableSecondaryAbi ? true,
+            enableArm32SecondaryAbi ? true,
           }:
           let
             # There is a lot of shared code between chrome app and chrome webview. So we
@@ -159,7 +159,7 @@ in
                     displayName
                     buildTargets
                     enableWidevine
-                    enableSecondaryAbi
+                    enableArm32SecondaryAbi
                     ;
                   targetCPU =
                     {
@@ -250,7 +250,7 @@ in
             name = "chromium";
             displayName = "Chromium";
             enableWidevine = config.apps.chromium.enableWidevine;
-            enableSecondaryAbi = config.apps.chromium.enableSecondaryAbi;
+            enableArm32SecondaryAbi = config.apps.chromium.enableArm32SecondaryAbi;
           }
           {
             name = "vanadium";
