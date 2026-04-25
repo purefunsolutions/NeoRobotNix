@@ -162,119 +162,135 @@ let
     in
     attrs: lib.concatStringsSep " " (lib.attrValues (lib.mapAttrs toFlag attrs));
 
-  gnFlags = {
-    # Android target
-    target_os = "android";
-    target_cpu = targetCPU;
-    android_channel = "stable";
-    android_default_version_name = _version;
-    android_default_version_code = _versionCode;
-    chrome_public_manifest_package = packageName;
-    system_webview_package_name = webviewPackageName;
-    trichrome_library_package = trichromeLibraryPackageName;
+  gnFlags =
+    {
+      # Android target
+      target_os = "android";
+      target_cpu = targetCPU;
+      android_channel = "stable";
+      android_default_version_name = _version;
+      android_default_version_code = _versionCode;
+      chrome_public_manifest_package = packageName;
+      system_webview_package_name = webviewPackageName;
+      trichrome_library_package = trichromeLibraryPackageName;
 
-    # Host toolchain (for build-side tools like protoc, mojo_parser, etc.)
-    host_cpu =
-      {
-        i686-linux = "x86";
-        x86_64-linux = "x64";
-        armv7l-linux = "arm";
-        aarch64-linux = "arm64";
+      # Host toolchain (for build-side tools like protoc, mojo_parser, etc.)
+      host_cpu =
+        {
+          i686-linux = "x86";
+          x86_64-linux = "x64";
+          armv7l-linux = "arm";
+          aarch64-linux = "arm64";
+        }
+        .${stdenv.buildPlatform.system};
+
+      # Host toolchain (for protoc-gen-js and other build-time tools): route
+      # through the unbundle:host toolchain so Chromium uses nixpkgs' clang +
+      # ld.lld with compiler-rt runtime (matches cc-wrapper env vars below).
+      # `custom_toolchain` (the "target" in Chromium parlance) stays as
+      # Chromium's default Android toolchain, so Android code still builds
+      # with the NDK/Chromium clang for the aarch64 ABI.
+      host_toolchain = "//build/toolchain/linux/unbundle:host";
+      v8_snapshot_toolchain = "//build/toolchain/linux/unbundle:host";
+
+      # Product flavor
+      is_official_build = true;
+      is_debug = false;
+      is_component_build = false;
+      is_clang = true;
+      clang_use_chrome_plugins = false;
+      treat_warnings_as_errors = false;
+      use_sysroot = false;
+      # Chromium 148 removed the enable_nacl declare_args — setting it here
+      # would trigger "Build argument has no effect" warning. NaCl is gone.
+      symbol_level = 1;
+      blink_symbol_level = 1;
+      disable_fieldtrial_testing_config = true;
+
+      # Disable things we don't want/need on Android Trichrome
+      use_gnome_keyring = false;
+      enable_vr = false;
+      # `enable_vr = false` alone isn't enough in M148: Android's WebXR
+      # Java code still compiles unless we also turn off the feature flags
+      # that route WebXR's generate_jni targets into the monochrome lib.
+      # Without these three, libmonochrome_64__jni_registration fails with
+      # "Excess Java files: ArCoreInstallUtils.java / CardboardUtils.java
+      # / XrActivityListener.java / XrSessionCoordinator.java".
+      enable_cardboard = false;
+      enable_arcore = false;
+      enable_openxr = false;
+      enable_remoting = false;
+      enable_reporting = true;
+      chrome_pgo_phase = 0;
+      # With chrome_pgo_phase=0 && is_android && !is_high_end_android,
+      # Chromium falls back to a default AFDO sample profile at
+      # chrome/android/profiles/afdo.prof, which is normally fetched via
+      # a gclient hook. We don't run hooks, so disable the default profile
+      # entirely — the resulting binary is a bit less optimized but builds.
+      clang_use_default_sample_profile = false;
+
+      # Widevine DRM: always enable the build path — Chromium 148's
+      # Android code (components/cdm/renderer/key_system_support_update.cc)
+      # unconditionally references `kWidevineKeySystem` within an
+      # `#if BUILDFLAG(IS_ANDROID)` block, so `enable_widevine = false`
+      # produces an undeclared-identifier build error rather than a
+      # graceful no-build of the Widevine path. The user-facing
+      # `apps.chromium.enableWidevine` option is documentation/future-
+      # reserved — toggling it on/off doesn't change the resulting binary
+      # today. Turning on the feature here doesn't pull any CDM .so into
+      # the build: on Android, Widevine flows through MediaDrm which the
+      # device's own vendor partition provides (or doesn't).
+      enable_widevine = true;
+
+      # Secondary ABI: pack a 32-bit (arm) sidecar library into the
+      # Trichrome bundle alongside the 64-bit (arm64) primary, so devices
+      # with 32-bit-only apps can keep using a Chromium-backed WebView.
+      # Defaults to true via `apps.chromium.enableArm32SecondaryAbi`. Turning
+      # this off cuts compile time roughly in half and produces a
+      # 64-only `TrichromeChrome.aab` instead of `TrichromeChrome6432.aab`.
+      # See: chromium-148-v8-secondary-abi-torque.patch — this build path
+      # is the one the per-ABI torque fix exists for.
+      enable_android_secondary_abi = enableArm32SecondaryAbi;
+
+      # Codecs
+      proprietary_codecs = true;
+      ffmpeg_branding = "Chrome";
+
+      # Use the bundled clang extracted from DEPS. We could set `clang_base_path`
+      # explicitly, but leaving it to the build default (`//third_party/llvm-build/
+      # Release+Asserts/`) lets postPatch place a ready-to-use tree there.
+      # Keep clang modules off — safer cross-ver compat even with bundled clang.
+      use_clang_modules = false;
+      # Chromium's bundled libffi builds a _pic.a variant that we don't
+      # ship from nixpkgs' libffi. Tell Chromium to use system libffi,
+      # same workaround nixpkgs/common.nix uses.
+      use_system_libffi = true;
+      # Use Chromium's bundled Rust toolchain (extracted in postPatch to
+      # third_party/rust-toolchain/): its stdlib is pre-built for every
+      # Android ABI (aarch64-linux-android, armv7-linux-androideabi, etc.).
+      # nixpkgs' rustc doesn't ship those target stdlibs. Leaving
+      # rust_sysroot_absolute unset makes GN's `use_chromium_rust_toolchain`
+      # evaluate true, which routes compilation through //third_party/rust-
+      # toolchain. rust_bindgen_root also points there (bundled LLVM-23
+      # libclang matches Chromium's compile flags).
+      rust_bindgen_root = "//third_party/rust-toolchain";
+      enable_rust = true;
+    }
+    // (
+      # Chromium's `validate_expectations` umbrella target hard-codes
+      # data_deps on the `_32`, `_32_64`, and `_64_32` validation variants
+      # of every Trichrome target. With the secondary ABI off those
+      # variants are never instantiated, so GN's configure phase fails
+      # with `needs //...:trichrome_chrome_32_bundle__... (does not
+      # exist)` before any compile starts. Disable both verification
+      # umbrellas in that configuration — they're CI-only checks, not
+      # required to produce APKs/AABs.
+      lib.optionalAttrs (!enableArm32SecondaryAbi) {
+        enable_manifest_verification = false;
+        enable_libs_and_assets_verification = false;
       }
-      .${stdenv.buildPlatform.system};
-
-    # Host toolchain (for protoc-gen-js and other build-time tools): route
-    # through the unbundle:host toolchain so Chromium uses nixpkgs' clang +
-    # ld.lld with compiler-rt runtime (matches cc-wrapper env vars below).
-    # `custom_toolchain` (the "target" in Chromium parlance) stays as
-    # Chromium's default Android toolchain, so Android code still builds
-    # with the NDK/Chromium clang for the aarch64 ABI.
-    host_toolchain = "//build/toolchain/linux/unbundle:host";
-    v8_snapshot_toolchain = "//build/toolchain/linux/unbundle:host";
-
-    # Product flavor
-    is_official_build = true;
-    is_debug = false;
-    is_component_build = false;
-    is_clang = true;
-    clang_use_chrome_plugins = false;
-    treat_warnings_as_errors = false;
-    use_sysroot = false;
-    # Chromium 148 removed the enable_nacl declare_args — setting it here
-    # would trigger "Build argument has no effect" warning. NaCl is gone.
-    symbol_level = 1;
-    blink_symbol_level = 1;
-    disable_fieldtrial_testing_config = true;
-
-    # Disable things we don't want/need on Android Trichrome
-    use_gnome_keyring = false;
-    enable_vr = false;
-    # `enable_vr = false` alone isn't enough in M148: Android's WebXR
-    # Java code still compiles unless we also turn off the feature flags
-    # that route WebXR's generate_jni targets into the monochrome lib.
-    # Without these three, libmonochrome_64__jni_registration fails with
-    # "Excess Java files: ArCoreInstallUtils.java / CardboardUtils.java
-    # / XrActivityListener.java / XrSessionCoordinator.java".
-    enable_cardboard = false;
-    enable_arcore = false;
-    enable_openxr = false;
-    enable_remoting = false;
-    enable_reporting = true;
-    chrome_pgo_phase = 0;
-    # With chrome_pgo_phase=0 && is_android && !is_high_end_android,
-    # Chromium falls back to a default AFDO sample profile at
-    # chrome/android/profiles/afdo.prof, which is normally fetched via
-    # a gclient hook. We don't run hooks, so disable the default profile
-    # entirely — the resulting binary is a bit less optimized but builds.
-    clang_use_default_sample_profile = false;
-
-    # Widevine DRM: always enable the build path — Chromium 148's
-    # Android code (components/cdm/renderer/key_system_support_update.cc)
-    # unconditionally references `kWidevineKeySystem` within an
-    # `#if BUILDFLAG(IS_ANDROID)` block, so `enable_widevine = false`
-    # produces an undeclared-identifier build error rather than a
-    # graceful no-build of the Widevine path. The user-facing
-    # `apps.chromium.enableWidevine` option is documentation/future-
-    # reserved — toggling it on/off doesn't change the resulting binary
-    # today. Turning on the feature here doesn't pull any CDM .so into
-    # the build: on Android, Widevine flows through MediaDrm which the
-    # device's own vendor partition provides (or doesn't).
-    enable_widevine = true;
-
-    # Secondary ABI: pack a 32-bit (arm) sidecar library into the
-    # Trichrome bundle alongside the 64-bit (arm64) primary, so devices
-    # with 32-bit-only apps can keep using a Chromium-backed WebView.
-    # Defaults to true via `apps.chromium.enableArm32SecondaryAbi`. Turning
-    # this off cuts compile time roughly in half and produces a
-    # 64-only `TrichromeChrome.aab` instead of `TrichromeChrome6432.aab`.
-    # See: chromium-148-v8-secondary-abi-torque.patch — this build path
-    # is the one the per-ABI torque fix exists for.
-    enable_android_secondary_abi = enableArm32SecondaryAbi;
-
-    # Codecs
-    proprietary_codecs = true;
-    ffmpeg_branding = "Chrome";
-
-    # Use the bundled clang extracted from DEPS. We could set `clang_base_path`
-    # explicitly, but leaving it to the build default (`//third_party/llvm-build/
-    # Release+Asserts/`) lets postPatch place a ready-to-use tree there.
-    # Keep clang modules off — safer cross-ver compat even with bundled clang.
-    use_clang_modules = false;
-    # Chromium's bundled libffi builds a _pic.a variant that we don't
-    # ship from nixpkgs' libffi. Tell Chromium to use system libffi,
-    # same workaround nixpkgs/common.nix uses.
-    use_system_libffi = true;
-    # Use Chromium's bundled Rust toolchain (extracted in postPatch to
-    # third_party/rust-toolchain/): its stdlib is pre-built for every
-    # Android ABI (aarch64-linux-android, armv7-linux-androideabi, etc.).
-    # nixpkgs' rustc doesn't ship those target stdlibs. Leaving
-    # rust_sysroot_absolute unset makes GN's `use_chromium_rust_toolchain`
-    # evaluate true, which routes compilation through //third_party/rust-
-    # toolchain. rust_bindgen_root also points there (bundled LLVM-23
-    # libclang matches Chromium's compile flags).
-    rust_bindgen_root = "//third_party/rust-toolchain";
-    enable_rust = true;
-  } // customGnFlags;
+    )
+    // customGnFlags;
 
 in
 # Use rustc's matched LLVM stdenv so cc-wrapper provides CC/CXX/AR/NM/READELF
