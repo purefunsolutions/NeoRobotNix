@@ -1,7 +1,7 @@
 {
   "chromium": {
-    "rev": "9ec29888167c52c1ebafd33380ff98a85a64987a",
-    "version": "148.0.7778.49"
+    "rev": "9c8071511cb8bb15fa3fa4845fb38e8490aa057a",
+    "version": "148.0.7778.60"
   },
   "depot_tools": {
     "rev": "140bbee04c87350f0d797e31aaa3987bd5f40ea8"
@@ -9,8 +9,8 @@
   "deps": {
     "src": {
       "fetcher": "fetchFromGitiles",
-      "hash": "sha256-8eCYE2IIqazkB6ND87M3xmH2EDHA+Dzh5kanyJSPuAg=",
-      "rev": "9ec29888167c52c1ebafd33380ff98a85a64987a",
+      "hash": "sha256-ZkBV9K1bX+XE+uMuBfv/cm54PMqCojG83dKvsQZVjcI=",
+      "rev": "9c8071511cb8bb15fa3fa4845fb38e8490aa057a",
       "url": "https://chromium.googlesource.com/chromium/src.git"
     },
     "src/android_webview/tools/cts_archive/cipd": {
