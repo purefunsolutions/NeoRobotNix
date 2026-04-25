@@ -8,6 +8,31 @@ user intervention / configuration changes.  These are highlights since the last
 update, and are not meant to be an exhaustive listing of changes. See the git
 commit log for additional details.
 
+# 2026-04-24
+
+- Chromium build revived, now targeting **Chromium 148** (matching
+  GrapheneOS Vanadium tag `148.0.7778.49.0`). The 2022-era fetcher
+  (`mk-vendor-file.py` + `vendor-100.0.4896.*.nix`) has been replaced
+  by a pure-Nix pipeline:
+  - `pkgs/chromium-update/` — DEPS resolver (extends nixpkgs'
+    `depot_tools.py` with CIPD and GCS fetchers, Android conditions,
+    `version_file` and `${arch}`/`${platform}` template handling)
+  - `apks/chromium/info.json` — committed, regenerable via
+    `./pkgs/chromium-update/update.py --chromium-version <X.Y.Z.W>`
+  - `apks/chromium/src.nix` — assembles the tree from info.json
+- **Breaking:** `apps.bromite` option removed. Bromite's upstream has
+  been dead since 2023; users wanting a hardened Chromium should use
+  `apps.vanadium` instead. Remove any `apps.bromite.enable = true`
+  lines from your configuration.
+- **New:** `apps.chromium.enableWidevine` option (default `false`).
+  Opt in if you want Widevine DRM playback (Netflix, Spotify Premium)
+  to work in Chromium/WebView. On Android this does *not* bundle a
+  proprietary CDM — the browser calls into the device's
+  `android.media.MediaDrm`, which routes to the Widevine TA in the
+  TEE. L1 vs L3 is a per-device/ROM concern (depends on whether the
+  OEM's Widevine keybox survived vendor extraction), not something
+  this flag controls.
+
 # 2026-03-26
 
 - A module for PKCS#11 (e.g. YubiKey) release signing was added.
