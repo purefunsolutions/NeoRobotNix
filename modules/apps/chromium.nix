@@ -14,7 +14,9 @@ let
     mkIf
     mkMerge
     mkEnableOption
+    mkOption
     mkOverride
+    types
     ;
 
   mkWeakDefault = mkOverride 1200; # Priority betrween mkDefault and mkOptionDefault
@@ -22,7 +24,6 @@ let
   # aapt2 from android build-tools doesn't work here:
   # error: failed to deserialize resources.pb: duplicate configuration in resource table.
   # The version from chromium works, however:  https://bugs.chromium.org/p/chromium/issues/detail?id=1106115
-  #aapt2 = "${pkgs.androidPkgs.sdk (p: with p; [ cmdline-tools-latest build-tools-30-0-1 ])}/share/android-sdk/build-tools/30.0.1/aapt2";
   aapt2 =
     pkgs.stdenv.mkDerivation {
       # TODO: Move this into the chromium derivation. Use their own aapt2/bundletool.
@@ -71,7 +72,32 @@ in
 {
   options = {
     apps.chromium.enable = mkEnableOption "chromium browser";
-    apps.bromite.enable = mkEnableOption "bromite browser";
+    apps.chromium.enableWidevine = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Build Chromium/Trichrome with Widevine DRM support
+        (`enable_widevine = true` passed to GN).
+
+        On Android this does NOT bundle a proprietary CDM: the browser
+        talks to the device's `android.media.MediaDrm` HAL, which routes
+        to the Widevine TA running in the TEE. No unfree blob is pulled
+        into the Nix build.
+
+        Whether playback lands at L1 (hardware-backed) or L3 (software)
+        depends entirely on the LineageOS vendor partition carrying the
+        OEM's Widevine keybox — a per-device/ROM concern, not something
+        this option controls.
+
+        Off by default so anyone who doesn't explicitly opt in ships a
+        fully-DRM-free browser. Opt in when you want Netflix / Spotify
+        Premium / other EME-protected content to play in Chromium or
+        in apps that embed the Chromium-provided WebView.
+
+        See: https://github.com/purefunsolutions/NeoRobotNix (issue
+        documenting this option).
+      '';
+    };
     apps.vanadium.enable = mkEnableOption "vanadium browser";
   };
 
@@ -85,6 +111,7 @@ in
             buildSeparately ? false,
             chromeModernIsBundled ? true,
             isTriChrome ? (config.androidVersion >= 10),
+            enableWidevine ? false,
           }:
           let
             # There is a lot of shared code between chrome app and chrome webview. So we
@@ -111,6 +138,7 @@ in
                     trichromeLibraryPackageName
                     displayName
                     buildTargets
+                    enableWidevine
                     ;
                   targetCPU =
                     {
@@ -129,9 +157,11 @@ in
                   "trichrome_library_apk"
                 ]
               else if chromeModernIsBundled then
-                [ "chrome_modern_public_bundle" ]
+                # Was `chrome_modern_public_bundle` in <=M147 — renamed to
+                # `chrome_public_bundle` in M148.
+                [ "chrome_public_bundle" ]
               else
-                [ "chrome_modern_public_apk" ];
+                [ "chrome_public_apk" ];
             webviewTargets =
               if isTriChrome then
                 [
@@ -198,14 +228,7 @@ in
           {
             name = "chromium";
             displayName = "Chromium";
-          }
-          # For an unknown reason, Bromite fails to build chrome_modern_public_bundle
-          # simultaneously with system_webview_apk as of 2020-12-22
-          {
-            name = "bromite";
-            displayName = "Bromite";
-            buildSeparately = true;
-            isTriChrome = false;
+            enableWidevine = config.apps.chromium.enableWidevine;
           }
           {
             name = "vanadium";
