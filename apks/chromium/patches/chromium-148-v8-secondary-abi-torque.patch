@@ -1,0 +1,90 @@
+Fix Trichrome arm32 V8 torque mismatch.
+
+Root cause: our `v8_snapshot_toolchain = //build/toolchain/linux/unbundle:host`
+override (in apks/chromium/default.nix) collapses V8's per-ABI auto-selection
+from gni/snapshot_toolchain.gni down to a single host toolchain. That host
+toolchain picks up `v8_current_cpu = "arm64"` from our arm64 primary target,
+so the torque binary gets compiled with `V8_ENABLE_SANDBOX=1` and
+`V8_ENABLE_POINTER_COMPRESSION=1` baked in. Torque then emits
+`trusted-object-tq.cc` with `self_indirect_pointer` and a
+`static_assert(kSelfIndirectPointerOffset == ...)` line.
+
+Primary (android_clang_arm64) compiles torque's output against C++ headers
+that also have V8_ENABLE_SANDBOX=1, so the assert passes. Secondary
+(android_clang_arm) compiles those same torque outputs against C++ headers
+built with v8_enable_sandbox=false (arm32 can't do pointer compression →
+sandbox auto-off), so `kSelfIndirectPointerOffset` is undefined → build error.
+
+Fix: run torque twice — once for arm64 with sandbox on (existing path,
+unchanged) and once for arm32 in a second unbundle toolchain that pins
+`v8_current_cpu = "arm"`. Each ABI's `run_torque` action now depends on
+its matching torque binary, so each `torque-generated/` tree is consistent
+with the headers it will be compiled against.
+
+Two files touched:
+
+  * build/toolchain/linux/unbundle/BUILD.gn — add `host_v8_arm`, a clone of
+    `host` that forces `v8_current_cpu = "arm"` in toolchain_args. Same
+    compiler (nixpkgs host clang via BUILD_CC), just different V8 config.
+
+  * v8/BUILD.gn — route `run_torque("")` to `host_v8_arm` when
+    `v8_current_cpu == "arm"`, and extend the `v8_executable("torque")`
+    guard so torque also builds in the `host_v8_arm` toolchain context.
+
+--- a/build/toolchain/linux/unbundle/BUILD.gn
++++ b/build/toolchain/linux/unbundle/BUILD.gn
+@@ -39,3 +39,26 @@ gcc_toolchain("host") {
+     current_os = current_os
+   }
+ }
++
++# Host-runnable toolchain that forces v8_current_cpu = "arm", used by the
++# patched v8/BUILD.gn to build a second torque binary whose baked V8 config
++# (no sandbox, no pointer compression) matches the arm32 secondary ABI's
++# target compile. See chromium-148-v8-secondary-abi-torque.patch.
++gcc_toolchain("host_v8_arm") {
++  cc = getenv("BUILD_CC")
++  cxx = getenv("BUILD_CXX")
++  ar = getenv("BUILD_AR")
++  nm = getenv("BUILD_NM")
++  ld = cxx
++
++  extra_cflags = getenv("BUILD_CFLAGS")
++  extra_cppflags = getenv("BUILD_CPPFLAGS")
++  extra_cxxflags = getenv("BUILD_CXXFLAGS")
++  extra_ldflags = getenv("BUILD_LDFLAGS")
++
++  toolchain_args = {
++    current_cpu = current_cpu
++    current_os = current_os
++    v8_current_cpu = "arm"
++  }
++}
+--- a/v8/BUILD.gn
++++ b/v8/BUILD.gn
+@@ -2481,7 +2481,14 @@ template("run_torque") {
+
+ # Default run_torque action
+ run_torque("") {
+-  toolchain = v8_generator_toolchain
++  # For the arm32 secondary ABI, depend on a torque binary built with
++  # v8_current_cpu="arm" (sandbox/pointer-compression off) so the emitted
++  # torque-generated/ tree matches the headers arm32 V8 is compiled against.
++  if (v8_current_cpu == "arm") {
++    toolchain = "//build/toolchain/linux/unbundle:host_v8_arm"
++  } else {
++    toolchain = v8_generator_toolchain
++  }
+ }
+
+ if (v8_verify_torque_generation_invariance) {
+@@ -7981,6 +7988,7 @@ if (v8_enable_webassembly) {
+   }
+ }
+
+-if (current_toolchain == v8_snapshot_toolchain) {
++if (current_toolchain == v8_snapshot_toolchain ||
++    current_toolchain == "//build/toolchain/linux/unbundle:host_v8_arm") {
+   v8_executable("torque") {
+     visibility = [ ":*" ]  # Only targets in this file can depend on this.
+

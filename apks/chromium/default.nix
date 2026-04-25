@@ -374,6 +374,11 @@ rustc.llvmPackages.stdenv.mkDerivation {
     ./patches/no-build-timestamps.patch
     # Cross-compile fixes (READELF env var, etc.)
     ./patches/cross-compile.patch
+    # Fix arm32 secondary ABI V8 torque mismatch: route arm32 run_torque
+    # to a second torque binary built with v8_current_cpu="arm" so the
+    # emitted torque-generated/ tree matches arm32 V8's compile-time
+    # V8_ENABLE_SANDBOX=0 / pointer-compression=0 configuration.
+    ./patches/chromium-148-v8-secondary-abi-torque.patch
   ];
   # Other Rust-related nixpkgs patches are intentionally omitted for M148:
   # - chromium-144-rustc_nightly_capability: 148's
