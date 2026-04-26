@@ -1,0 +1,58 @@
+Fix Vanadium full Trichrome bundle build.
+
+Two independent issues block the `trichrome_chrome_bundle` target when
+the Vanadium patch series is applied on Chromium 148:
+
+1. ConfigInfo class never reaches the bundle base module's dex.
+   Vanadium's patch 0135 adds `configinfo_srcjar_apk` to
+   `chrome_public_apk_or_module_tmpl`'s nested `srcjar_deps`, but the
+   subsequent `forward_variables_from(invoker, "*")` overwrites the
+   local list with the invoker's `srcjar_deps` (in our case the
+   jni_registration accumulation done by chrome_public_bundle's body),
+   so configinfo_srcjar_apk gets silently dropped. R8 then sees
+   `app.vanadium.config.VanadiumConfParser$ParsedConfigs` referencing
+   `app.vanadium.config.ConfigInfo` but no class definition for it,
+   and TraceReferences fails the bundle.
+
+   Fix: add `//vanadium/android_config:configinfo_srcjar_apk` directly
+   to the invocation block of `chrome_public_apk_or_module_tmpl` from
+   `chrome_public_bundle`, alongside the jni_registration list.
+
+2. Bundle feature modules' min_sdk_version defaults to 29 while the
+   base module is bumped to 33 by Vanadium's patch 0197 — bundletool
+   then refuses the bundle with "Modules cannot have a minSdkVersion
+   attribute with a value lower than the one from the base module."
+
+   Vanadium's 0197 only patches `chrome_common_apk_or_module_tmpl`,
+   which builds the base module. Feature modules (on_demand,
+   test_dummy, stack_unwinder, xr) go through `chrome_bundle` →
+   `chrome_feature_module` and use `_min_sdk_version` derived in
+   `chrome_bundle_tmpl.gni`, where it defaults to
+   `default_min_sdk_version` (= 29 in M148).
+
+   Fix: in chrome_bundle_tmpl.gni, default `_min_sdk_version` to 33
+   when `_is_trichrome`, matching the base module's bumped value.
+
+--- a/chrome/android/BUILD.gn
++++ b/chrome/android/BUILD.gn
+@@ -91,6 +91,9 @@ if (_is_default_toolchain) {
+       add_view_trace_events = true
+ 
+       srcjar_deps = []
++      srcjar_deps += [
++        "//vanadium/android_config:configinfo_srcjar_apk",
++      ]
+       foreach(_module_desc, chrome_module_descs) {
+         if (defined(_module_desc.jni_registration)) {
+           srcjar_deps += [ _module_desc.jni_registration ]
+--- a/chrome/android/modules/chrome_bundle_tmpl.gni
++++ b/chrome/android/modules/chrome_bundle_tmpl.gni
+@@ -101,6 +101,8 @@ template("chrome_bundle") {
+ 
+   if (defined(invoker.min_sdk_version)) {
+     _min_sdk_version = invoker.min_sdk_version
++  } else if (_is_trichrome) {
++    _min_sdk_version = 33
+   } else {
+     _min_sdk_version = default_min_sdk_version
+   }

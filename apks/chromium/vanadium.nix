@@ -48,6 +48,11 @@ in
           for patchfile in ${vanadium_src}/patches/*.patch; do
             ${git}/bin/git apply --unsafe-paths $patchfile
           done
+          # Vanadium-specific build-system fixes that aren't part of the
+          # GrapheneOS patch series. Applied after Vanadium's patches so
+          # they can reference targets the Vanadium patches introduce
+          # (//vanadium/android_config:configinfo_srcjar_apk).
+          ${git}/bin/git apply --unsafe-paths ${./patches/vanadium-148-trichrome-bundle-fixes.patch}
         )
       ''
       + attrs.postPatch;
