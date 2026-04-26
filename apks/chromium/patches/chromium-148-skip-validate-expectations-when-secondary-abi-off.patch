@@ -1,0 +1,43 @@
+Skip Trichrome expectations validation when secondary ABI is off.
+
+`chrome/android:validate_expectations` is a Chromium android-binary-size
+trybot helper. Its `data_deps` hard-code every Trichrome variant —
+`_64`, `_32`, `_64_32`, `_32_64` — without checking which ones actually
+got instantiated. With `enable_android_secondary_abi = false` the 32-bit
+and dual-ABI variants don't exist, and GN's configure phase aborts
+with dozens of "needs //chrome/android:trichrome_chrome_32_bundle__...
+(does not exist)" errors before any compile starts.
+
+The two switches that gate validate_expectations live in
+`chrome/android/expectations/expectations.gni`. They're plain
+assignments — not `declare_args()` blocks — so they can't be turned
+off from `customGnFlags`. Patch them to additionally require
+`enable_android_secondary_abi`, so the verifications automatically
+disable themselves whenever the dual-ABI variants don't exist. No
+effect on the dual-ABI configuration (where the variants do exist
+and validation is desirable).
+
+--- a/chrome/android/expectations/expectations.gni
++++ b/chrome/android/expectations/expectations.gni
+@@ -3,12 +3,14 @@
+ # found in the LICENSE file.
+ #
+ import("//build/config/android/config.gni")
++import("//build/config/android/abi.gni")
+ import("//build/config/coverage/coverage.gni")
+ 
+ # Chosen to match android-binary-size trybot.
+ enable_libs_and_assets_verification =
+     !enable_chrome_android_internal && !is_component_build &&
+     !use_jacoco_coverage && is_official_build &&
++    enable_android_secondary_abi &&
+     ((target_cpu == "arm64" || target_cpu == "x64") &&
+      android_channel == "stable")
+ 
+@@ -18,6 +20,7 @@
+ # target_cpu: android:versionCode varies.
+ enable_manifest_verification =
+     !is_java_debug && !enable_chrome_android_internal && !use_jacoco_coverage &&
++    enable_android_secondary_abi &&
+     ((target_cpu == "arm64" || target_cpu == "x64") &&
+      android_channel == "stable")
