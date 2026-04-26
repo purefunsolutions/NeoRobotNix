@@ -92,7 +92,7 @@ Some optional modules include:
  - Vanilla Android 12 AOSP support (for Pixel devices)
  - Signed builds for verified boot (dm-verity/AVB) and re-locking the bootloader with a user-specified key
  - Apps: [F-Droid](https://f-droid.org/) (including the privileged extension for automatic installation/updating), [Auditor](https://attestation.app/about), [Seedvault Backup](https://github.com/stevesoltys/backup)
- - Browser / Webview: [Chromium](https://www.chromium.org/Home), [Bromite](https://www.bromite.org/), [Vanadium](https://github.com/GrapheneOS/Vanadium)
+ - Browser / Webview: [Chromium](https://www.chromium.org/Home), [Vanadium](https://github.com/GrapheneOS/Vanadium)
  - [Seamless OTA updates](https://github.com/GrapheneOS/platform_packages_apps_Updater)
  - [MicroG](https://microg.org/)
  - Easily setting various framework configuration settings such as those found [here](https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml)
@@ -143,7 +143,7 @@ This table documents the current status of Robotnix' components.
 | anbox                                        | ❌ No          | Yes (upstream is dead)                    | -                       |
 | F-droid                                      | ✅ Yes         | No                                        | @Atemu @eyJhb           |
 | µG                                           | ✅ Yes         | No                                        | @Atemu                  |
-| Webview                                      | ❌ No          | No                                        | -                       |
+| Webview                                      | ✅ Yes         | No                                        | @mikatammi              |
 | Kernels                                      | ❌ No          | No                                        | -                       |
 | Signing                                      | ✅ Yes         | No                                        | @cyclic-pentane         |
 | Framework configuration                      | ✅ Yes         | No                                        | @cyclic-pentane somewhat|
@@ -151,7 +151,8 @@ This table documents the current status of Robotnix' components.
 | Hosts-file                                   | ❌ No          | No                                        | -                       |
 | Seedvault                                    | ❌ No          | No                                        | -                       |
 | Auditor                                      | ❌ No          | No                                        | -                       |
-| Chromium source build                        | ❌ No          | No                                        | -                       |
+| Chromium source build                        | ✅ Yes         | No                                        | @mikatammi              |
+| Vanadium source build                        | ✅ Yes         | No                                        | @mikatammi              |
 
 ## License information
 This project is available as open source under the terms of MIT license. However, for accurate information, please check individual files.
